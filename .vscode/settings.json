@@ -1,0 +1,8 @@
+{
+    "json.schemas": [
+        {
+            "fileMatch": ["**/manifest.json"],
+            "url": "/opt/axis/acapsdk/axis-acap-manifest-tools/schemas/v1/*.json"
+        }
+    ]
+}
