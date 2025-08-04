@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     curl \
+    libglib2.0-dev \
     cppcheck \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

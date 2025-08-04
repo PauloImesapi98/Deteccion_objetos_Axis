@@ -2,11 +2,11 @@
     "schemaVersion": "1.7.0",
     "acapPackageConf": {
         "setup": {
-            "friendlyName": "Detección de objetos API",
+            "friendlyName": "Detección de objetos API ",
             "appName": "object_detection",
             "vendor": "Api Movilidad",
             "embeddedSdkVersion": "3.0",
-            "runOptions": "/usr/local/packages/object_detection/model/model.tflite 300 300 80 1920 1080 50 /usr/local/packages/object_detection/label/labels.txt -c cpu-tflite",
+            "runOptions": "/usr/local/packages/object_detection/model/model.tflite 300 300 80 800 600 50 /usr/local/packages/object_detection/label/labels.txt -c cpu-tflite",
             "vendorUrl": "https://www.apimovilidad.es",
             "runMode": "never",
             "version": "1.0.0"

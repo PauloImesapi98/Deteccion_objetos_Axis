@@ -689,7 +689,7 @@ int main(int argc, char** argv) {
         goto end;
     }
 
-    // Allocate space for input tensor
+    // Asignación de espacio en memoria para los buffers de entrada/salida
     syslog(LOG_INFO, "Allocate memory for input/output buffers");
     if (!createAndMapTmpFile(PP_SD_INPUT_FILE_PATTERN, yuyvBufferSize, &ppInputAddr, &ppInputFd)) {
         goto end;
