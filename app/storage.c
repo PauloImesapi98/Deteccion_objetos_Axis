@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "storage.h"
 
 #include <errno.h>
 #include <glib-unix.h>
@@ -27,71 +28,7 @@
 /* AX Storage library. */
 #include <axsdk/axstorage.h>
 
-#define APP_NAME "axstorage"
 
-/**
- * disk_item_t represents one storage device and its values.
- */
-typedef struct {
-    AXStorage* storage;         /** AXStorage reference. */
-    AXStorageType storage_type; /** Storage type */
-    gchar* storage_id;          /** Storage device name. */
-    gchar* storage_path;        /** Storage path. */
-    guint subscription_id;      /** Subscription ID for storage events. */
-    gboolean setup;             /** TRUE: storage was set up async, FALSE otherwise. */
-    gboolean writable;          /** Storage is writable or not. */
-    gboolean available;         /** Storage is available or not. */
-    gboolean full;              /** Storage device is full or not. */
-    gboolean exiting;           /** Storage is exiting (going to disappear) or not. */
-} disk_item_t;
-
-static GList* disks_list = NULL;
-
-/**
- * @brief Handles the signals.
- *
- * @param loop Loop to quit
- */
-static gboolean signal_handler(gpointer loop) {
-    g_main_loop_quit((GMainLoop*)loop);
-    syslog(LOG_INFO, "Application was stopped by SIGTERM or SIGINT.");
-    return G_SOURCE_REMOVE;
-}
-
-/**
- * @brief Callback function registered by g_timeout_add_seconds(),
- *        which is triggered every 10th second and writes data to disk
- *
- * @param data The storage to subscribe to its events
- *
- * @return Result
- */
-static gboolean write_data(const gchar* data) {
-    static guint counter = 0;
-    GList* node          = NULL;
-    gboolean ret         = TRUE;
-    for (node = g_list_first(disks_list); node != NULL; node = g_list_next(node)) {
-        disk_item_t* item = node->data;
-
-        /* Write data to disk when it is available, writable and has disk space
-           and the setup has been done. */
-        if (item->available && item->writable && !item->full && item->setup) {
-            gchar* filename = g_strdup_printf("%s/%s.log", item->storage_path, data);
-
-            FILE* file = g_fopen(filename, "a");
-            if (file == NULL) {
-                syslog(LOG_WARNING, "Failed to open %s. Error %s.", filename, g_strerror(errno));
-                ret = FALSE;
-            } else {
-                g_fprintf(file, "counter: %d\n", ++counter);
-                fclose(file);
-                syslog(LOG_INFO, "Writing to %s", filename);
-            }
-            g_free(filename);
-        }
-    }
-    return ret;
-}
 
 /**
  * @brief Find disk item in disks_list
@@ -100,7 +37,7 @@ static gboolean write_data(const gchar* data) {
  *
  * @return Disk item
  */
-static disk_item_t* find_disk_item_t(gchar* storage_id) {
+disk_item_t* find_disk_item_t(gchar* storage_id, GList* disks_list) {
     GList* node       = NULL;
     disk_item_t* item = NULL;
 
@@ -132,7 +69,7 @@ static void release_disk_cb(gpointer user_data, GError* error) {
 /**
  * @brief Free disk items from disks_list
  */
-static void free_disk_item_t(void) {
+void free_disk_item_t(GList* disks_list) {
     GList* node = NULL;
 
     for (node = g_list_first(disks_list); node != NULL; node = g_list_next(node)) {
@@ -179,12 +116,12 @@ static void free_disk_item_t(void) {
  * @param user_data
  * @param error Returned errors
  */
-static void setup_disk_cb(AXStorage* storage, gpointer user_data, GError* error) {
+static void setup_disk_cb(AXStorage* storage, gpointer user_data,GError* error) {
     GError* ax_error  = NULL;
     gchar* storage_id = NULL;
     gchar* path       = NULL;
     AXStorageType storage_type;
-    (void)user_data;
+    GList* disks_list = (GList*)user_data;
 
     if (storage == NULL || error != NULL) {
         syslog(LOG_ERR, "Failed to setup disk. Error: %s", error->message);
@@ -213,7 +150,7 @@ static void setup_disk_cb(AXStorage* storage, gpointer user_data, GError* error)
         goto free_variables;
     }
 
-    disk_item_t* disk = find_disk_item_t(storage_id);
+    disk_item_t* disk = find_disk_item_t(storage_id, disks_list);
     /* The storage pointer is created in this callback, assign it to
        disk_item_t instance. */
     disk->storage      = storage;
@@ -240,7 +177,7 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
     gboolean writable;
     gboolean full;
     gboolean exiting;
-    (void)user_data;
+    GList* disks_list = (GList*)user_data;
 
     if (error != NULL) {
         syslog(LOG_WARNING, "Failed to subscribe to %s. Error: %s", storage_id, error->message);
@@ -249,7 +186,7 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
     }
 
     syslog(LOG_INFO, "Subscribe for the events of %s", storage_id);
-    disk_item_t* disk = find_disk_item_t(storage_id);
+    disk_item_t* disk = find_disk_item_t(storage_id, disks_list);
 
     /* Get the status of the events. */
     exiting = ax_storage_get_status(storage_id, AX_STORAGE_EXITING_EVENT, &ax_error);
@@ -322,7 +259,7 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
         /* Writable implies that the disk is available. */
     } else if (writable && !full && !exiting && !disk->setup) {
         syslog(LOG_INFO, "Setup %s", storage_id);
-        ax_storage_setup_async(storage_id, setup_disk_cb, NULL, &ax_error);
+        ax_storage_setup_async(storage_id, setup_disk_cb, disks_list, &ax_error);
 
         if (ax_error != NULL) {
             /* NOTE: It is advised to try to setup again in case of failure. */
@@ -341,13 +278,13 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
  *
  * @return The item
  */
-static disk_item_t* new_disk_item_t(gchar* storage_id) {
+disk_item_t* new_disk_item_t(gchar* storage_id, GList* disks_list) {
     GError* error     = NULL;
     disk_item_t* item = NULL;
     guint subscription_id;
 
     /* Subscribe to disks events. */
-    subscription_id = ax_storage_subscribe(storage_id, subscribe_cb, NULL, &error);
+    subscription_id = ax_storage_subscribe(storage_id, subscribe_cb, disks_list, &error);
     if (subscription_id == 0 || error != NULL) {
         syslog(LOG_ERR,
                "Failed to subscribe to events of %s. Error: %s",
@@ -363,66 +300,4 @@ static disk_item_t* new_disk_item_t(gchar* storage_id) {
     item->setup           = FALSE;
 
     return item;
-}
-
-/**
- * @brief Main function
- *
- * @return Result
- */
-gint main(void) {
-    GList* disks    = NULL;
-    GList* node     = NULL;
-    GError* error   = NULL;
-    GMainLoop* loop = NULL;
-    gint ret        = EXIT_SUCCESS;
-
-    openlog(APP_NAME, LOG_PID, LOG_USER);
-    syslog(LOG_INFO, "Start AXStorage application");
-
-    disks = ax_storage_list(&error);
-    if (error != NULL) {
-        syslog(LOG_WARNING, "Failed to list storage devices. Error: (%s)", error->message);
-        g_error_free(error);
-        ret = EXIT_FAILURE;
-        /* Note: It is advised to get the list more than once, in case of failure.*/
-        goto out;
-    }
-
-    loop = g_main_loop_new(NULL, FALSE);
-    g_unix_signal_add(SIGTERM, signal_handler, loop);
-    g_unix_signal_add(SIGINT, signal_handler, loop);
-
-    /* Loop through the retrieved disks and subscribe to their events. */
-    for (node = g_list_first(disks); node != NULL; node = g_list_next(node)) {
-        gchar* disk_name  = (gchar*)node->data;
-        disk_item_t* item = new_disk_item_t(disk_name);
-        if (item == NULL) {
-            syslog(LOG_WARNING, "%s is skipped", disk_name);
-            g_free(node->data);
-            continue;
-        }
-        disks_list = g_list_append(disks_list, item);
-        g_free(node->data);
-    }
-    g_list_free(disks);
-
-    /* Write contents to two files. */
-    gchar* file1 = g_strdup("file1");
-    gchar* file2 = g_strdup("file2");
-    g_timeout_add_seconds(10, (GSourceFunc)write_data, file1);
-    g_timeout_add_seconds(10, (GSourceFunc)write_data, file2);
-
-    /* start the main loop */
-    g_main_loop_run(loop);
-
-    free_disk_item_t();
-    g_free(file1);
-    g_free(file2);
-    /* unref the main loop when the main loop has been quit */
-    g_main_loop_unref(loop);
-
-out:
-    syslog(LOG_INFO, "Finish AXStorage application");
-    return ret;
 }
