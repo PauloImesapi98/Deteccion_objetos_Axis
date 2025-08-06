@@ -60,6 +60,7 @@
 #include "larod.h"
 #include "vdo-frame.h"
 #include "vdo-types.h"
+#include "storage.h"
 
 /**
  * @brief Free up resources held by an array of labels.
@@ -450,6 +451,10 @@ int main(int argc, char** argv) {
     size_t numLabels    = 0;     // Number of entries in the labels array.
     char* labelFileData = NULL;  // Buffer holding the complete collection of label strings.
 
+    GList* disks = NULL;
+    GList* node = NULL;
+    GError* error_storage = NULL;
+
     // Open the syslog to report messages for "object_detection"
     openlog("object_detection", LOG_PID | LOG_CONS, LOG_USER);
 
@@ -470,6 +475,26 @@ int main(int argc, char** argv) {
     syslog(LOG_INFO, "Desired HD height %d", desiredHDImgHeight);
     const int threshold          = args.threshold;
     const int quality            = args.quality;
+
+    disks = ax_storage_list(&error_storage);
+    if (error_storage != NULL) {
+        syslog(LOG_WARNING, "Failed to list storage devices. Error: (%s)", error_storage->message);
+        g_error_free(error_storage);
+        goto end;
+    }
+    if (disks == NULL) {
+        syslog(LOG_INFO, "No se han encontrado dispositivos de almacenamiento.");
+        goto end;
+    } else{
+        syslog(LOG_INFO, "Discos encontrados:");
+        for (node = g_list_first(disks); node != NULL; node = g_list_next(node)) {
+            gchar* disk_name  = (gchar*)node->data;
+            syslog(LOG_INFO, "%s", disk_name);
+            g_free(node->data);
+        }
+    }
+
+    
 
     syslog(LOG_INFO, "Finding best resolution to use as model input");
     unsigned int streamWidth  = 0;
