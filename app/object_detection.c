@@ -61,6 +61,7 @@
 #include "vdo-frame.h"
 #include "vdo-types.h"
 #include "storage.h"
+#include <axsdk/axstorage.h>
 
 /**
  * @brief Free up resources held by an array of labels.

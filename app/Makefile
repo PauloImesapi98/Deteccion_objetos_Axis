@@ -1,8 +1,8 @@
 PROG1	= object_detection
-OBJS1	= $(PROG1).c argparse.c imgprovider.c imgutils.c
+OBJS1	= $(PROG1).c argparse.c imgprovider.c imgutils.c storage.c
 PROGS	= $(PROG1)
 
-PKGS = gio-2.0 vdostream gio-unix-2.0 liblarod
+PKGS = gio-2.0 vdostream gio-unix-2.0 liblarod glib-2.0 axstorage 
 
 CFLAGS  += -Iinclude
 
