@@ -35,13 +35,10 @@ RUN cp ${BUILD_DIR_JPEG}/build/*.h . && \
     cp ${BUILD_DIR_JPEG}/*.h .
 
 WORKDIR /opt/app
-RUN curl -L -o model.tflite \
+RUN mkdir -p model && \
+    curl -L -o model.tflite \
     https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess.tflite
 
 # Download the labels
 RUN mkdir -p label && \
     curl -L -o label/labels.txt https://github.com/google-coral/test_data/raw/master/coco_labels.txt
-
-# Setup the model directory
-RUN mkdir -p model && \
-    cp model.tflite model/model.tflite

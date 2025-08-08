@@ -2,7 +2,7 @@
     "schemaVersion": "1.7.0",
     "acapPackageConf": {
         "setup": {
-            "friendlyName": "Detección de objetos API ",
+            "friendlyName": "Deteccion_objetos",
             "appName": "object_detection",
             "vendor": "Api Movilidad",
             "embeddedSdkVersion": "3.0",
