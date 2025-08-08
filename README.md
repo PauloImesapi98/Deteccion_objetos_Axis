@@ -16,18 +16,36 @@ En este repositorio se desarrolla una análitica de detección de objetos para c
 
 Para la ejecución de este programa se tienen que seguir los siguientes pasos:
 
-1. Abre Visual Studio Code. Ejecuta el contenedor, con el comando "Reopen in a container"
+1. Abre Visual Studio Code. Ejecuta el contenedor, con el comando
+    ```sh
+    Reopen in a container
+    ```
 
-2. Ejecuta el comando "cp /workspaces/Deteccion_objetos_Axis/app/* /opt/app/"
+2. Ejecuta el comando:
+    ```sh
+    cp /workspaces/Deteccion_objetos_Axis/app/* /opt/app/
+    ```
 
-3. Ejecuta el comando "cd /opt/app"
+3. Ejecuta el comando:
+    ```sh
+    cd /opt/app
+    ```
 
-4. Ejecuta el comando ". /opt/axis/acapsdk/environment-setup*"
+4. Ejecuta el comando:
+    ```sh
+    . /opt/axis/acapsdk/environment-setup*
+    ```
 
-5. Ejecuta el comando "acap-build -a 'label/labels.txt' -a 'model/converted_model.tflite'"
+5. Ejecuta el comando:
+    ```sh
+    acap-build -a 'label/labels.txt' -a 'model/converted_model.tflite'
+    ```
 
 6. Encuentra el archivo `.eap`.
-    Ejecuta el comando desde la terminal del equipo "docker cp {id_contenedor}:/opt/app/Deteccion_objetosAPI__1_0_0_armv7hf.eap /home/pmjuarezm/Documentos/"
+    Ejecuta el comando desde la terminal del equipo:
+    ```sh
+    docker cp {id_contenedor}:/opt/app/Deteccion_objetosAPI__1_0_0_armv7hf.eap /home/pmjuarezm/Documentos/
+    ```
 
 7. Instala la aplicación desde la inetrfaz web de la cámara.
 
@@ -35,8 +53,10 @@ Para la ejecución de este programa se tienen que seguir los siguientes pasos:
 
 ## Diseño de la aplicación
 
-Se ha tomado como base el ejemplo del repositorio de Axis-acap-sdk-examples "object_detection"
-En este proyecto, el flujo de vídeo original tiene una resolución de 800x600, mientras que **MobileNet SSD COCO** requiere una entrada de 300×300.  
+Se ha tomado como base el ejemplo [Object_detection](https://github.com/AxisCommunications/acap-native-sdk-examples/tree/main/object-detection) del repositorio acap-native-sdk-examples de Axis.
+
+En este proyecto, el flujo de vídeo original tiene una resolución de 800x600, mientras que **MobileNet SSD COCO** requiere una entrada de 300×300.
+
 Por ello, se configuran dos flujos distintos:
 
 - Uno para alimentar el modelo MobileNet.
@@ -132,4 +152,4 @@ Ejemplo de salida en logs:
 
 ## Licencia
 
-**[Apache License 2.0](../LICENSE)**
+**[Apache License 2.0](app/LICENSE)**
