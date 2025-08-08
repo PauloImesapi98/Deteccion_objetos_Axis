@@ -1,46 +1,37 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
-# Object Detection Example
+# Aplicación Detección de Obejtos Axis
 
-## Overview
+## Resumen
 
-This example focuses on the application of object detection on an Axis camera equipped with an Edge TPU, but can also be easily configured to run on CPU or ARTPEC-8 cameras (DLPU). A pretrained model [MobileNet SSD v2 (COCO)] is used to detect the location of 90 types of different objects. The model is downloaded through the Dockerfile from the google-coral repository. The detected objects are saved in /tmp folder for further usage.
+En este repositorio se desarrolla una análitica de detección de objetos para cámaras Axis, en concreto, para cámaras con chip Artpec 7. Se usa un modelo Mobinet SSD v2 para la detección de objetos. Las detecciones se guardan en el archivo temporal /tmp para usos futuros.
 
-## Prerequisites
+## Prerequisitos
 
-- Axis camera equipped with CPU, an [Edge TPU](https://coral.ai/docs/edgetpu/faq/) or DLPU (for ARTPEC-8)
+- Axis camera equipped with CPU.
 - [Docker](https://docs.docker.com/get-docker/)
+- Visual Studio Code
 
-## Quickstart
+## Instrucciones de uso
 
-The following instructions can be executed to simply run the example.
+Para la ejecución de este programa se tienen que seguir los siguientes pasos:
 
-1. Compile the ACAP application:
+1. Abre Visual Studio Code. Ejecuta el contenedor, con el comando "Reopen in a container"
 
-    ```sh
-    docker build --build-arg ARCH=<ARCH> --build-arg CHIP=<CHIP> --tag obj_detect:1.0 .
-    docker cp $(docker create obj_detect:1.0):/opt/app ./build
-    ```
+2. Ejecuta el comando "cp /workspaces/Deteccion_objetos_Axis/app/* /opt/app/"
 
-    where the values are found:
-    - \<CHIP\> is the chip type. Supported values are `artpec8`, `cpu` and `edgetpu`.
-    - \<ARCH\> is the architecture. Supported values are `armv7hf` (default) and `aarch64`.
+3. Ejecuta el comando "cd /opt/app"
 
-2. Find the ACAP application `.eap` file
+4. Ejecuta el comando ". /opt/axis/acapsdk/environment-setup*"
 
-    ```sh
-    build/object_detection_app_1_0_0_<ARCH>.eap
-    ```
+5. Ejecuta el comando "acap-build -a 'label/labels.txt' -a 'model/converted_model.tflite'"
 
-3. Install and start the ACAP application on your camera through the camera web GUI
+6. Encuentra el archivo `.eap`.
+    Ejecuta el comando desde la terminal del equipo "docker cp {id_contenedor}:/opt/app/Deteccion_objetosAPI__1_0_0_armv7hf.eap /home/pmjuarezm/Documentos/"
 
-4. SSH to the camera
+7. Instala la aplicación desde la inetrfaz web de la cámara.
 
-5. View its log to see the ACAP application output:
-
-    ```sh
-    tail -f /var/volatile/log/info.log | grep object_detection
-    ```
+8. Revisa los logs de la aplicación.
 
 ## Designing the application
 

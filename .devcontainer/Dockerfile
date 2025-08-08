@@ -36,7 +36,7 @@ RUN cp ${BUILD_DIR_JPEG}/build/*.h . && \
 
 WORKDIR /opt/app
 RUN mkdir -p model && \
-    curl -L -o model.tflite \
+    curl -L -o model/model.tflite \
     https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess.tflite
 
 # Download the labels
