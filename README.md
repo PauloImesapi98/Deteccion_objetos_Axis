@@ -10,16 +10,14 @@ En este repositorio se desarrolla una análitica de detección de objetos para c
 
 - Axis camera equipped with CPU.
 - [Docker](https://docs.docker.com/get-docker/)
-- Visual Studio Code
+- Visual Studio Code con la la extensión **Dev Container** instalado.
+- Git
 
 ## Instrucciones de uso
 
 Para la ejecución de este programa se tienen que seguir los siguientes pasos:
 
-1. Abre Visual Studio Code. Ejecuta el contenedor, con el comando
-    ```sh
-    Reopen in a container
-    ```
+1. Abre Visual Studio Code, y clona el repositorio. Luego ejecuta el comando 'Dev container: Reopen in container' desde la paleta de comandos.
 
 2. Ejecuta el comando:
     ```sh
@@ -78,7 +76,7 @@ Se utiliza la resolución original (`args.raw_width` × `args.raw_height`) para 
 
 ### Configuración de la interfaz Larod
 
-Siguiendo un enfoque similar a [tensorflow-to-larod](../tensorflow-to-larod), se establece la conexión con **larod**, seleccionando el hardware y asignando los tensores de entrada y salida a archivos temporales en `/tmp`.
+Se establece la conexión con **larod**, seleccionando el hardware y asignando los tensores de entrada y salida a archivos temporales en `/tmp`.
 
 ### Obtención de un fotograma e inferencia
 
@@ -86,31 +84,6 @@ Siguiendo un enfoque similar a [tensorflow-to-larod](../tensorflow-to-larod), se
 - Se convierte a formato RGB intercalado.
 - Se envía al modelo para obtener predicciones.
 - Si la puntuación supera el umbral definido, el recorte correspondiente se guarda como imagen JPG en `/tmp`.
-
----
-
-## Compilación de la aplicación
-
-Una aplicación ACAP incluye un archivo `manifest.json.<CHIP>` con la configuración del paquete.  
-El Dockerfile copia y renombra este archivo según el chip seleccionado.  
-
-La compilación se realiza con:
-
-```sh
-docker build --build-arg ARCH=<ARCH> --build-arg CHIP=<CHIP> --tag obj_detect:1.0 .
-docker cp $(docker create obj_detect:1.0):/opt/app ./build
-```
-
-**Parámetros:**
-
-- `<CHIP>`: tipo de chip (`artpec8`, `cpu`, `edgetpu`).
-- `<ARCH>`: arquitectura (`armv7hf` por defecto o `aarch64`).
-
-El archivo instalable `.eap` se genera en:
-
-```
-build/object_detection_app_1_0_0_<ARCH>.eap
-```
 
 ---
 
