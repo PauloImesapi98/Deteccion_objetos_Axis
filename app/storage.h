@@ -41,5 +41,5 @@ void free_disk_item_t(GList* disks_list);
  *
  * @return The item
  */
-disk_item_t* new_disk_item_t(gchar* storage_id, GList* disks_list);
+disk_item_t* new_disk_item_t(gchar* storage_id);
 

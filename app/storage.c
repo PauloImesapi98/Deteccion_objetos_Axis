@@ -29,6 +29,35 @@
 #include <axsdk/axstorage.h>
 
 
+/**
+ * @brief Busca el disco suministradp en la lista de discos disponibles y lo inicializa
+ * 
+ * @param storage_id El ID del disco a buscar
+ * 
+ * @return Disk item
+ */
+disk_item_t* find_init_disk(gchar* storage_id){
+    GList* node = NULL;
+    GList* disks = NULL;
+    GError* error = NULL;
+
+    disks = ax_storage_list(&error);
+    if (error != NULL) {
+        syslog(LOG_ERR, "Failed to list storage devices. Error: %s", error->message);
+        g_error_free(error);
+        return NULL;
+    }
+
+    for (node = g_list_first(disks); node != NULL; node = g_list_next(node)) {
+        gchar* disk_name = (gchar*)node->data;
+
+        if(g_strcmp0(storage_id, disk_name) == 0){
+            disk_item_t* item = new_disk_item_t(disk_name);
+            g_list_free(disks);
+            return item;
+        }
+    }
+}
 
 /**
  * @brief Find disk item in disks_list
@@ -121,7 +150,7 @@ static void setup_disk_cb(AXStorage* storage, gpointer user_data,GError* error) 
     gchar* storage_id = NULL;
     gchar* path       = NULL;
     AXStorageType storage_type;
-    GList* disks_list = (GList*)user_data;
+    disk_item_t* disk = (disk_item_t*)user_data;
 
     if (storage == NULL || error != NULL) {
         syslog(LOG_ERR, "Failed to setup disk. Error: %s", error->message);
@@ -150,7 +179,7 @@ static void setup_disk_cb(AXStorage* storage, gpointer user_data,GError* error) 
         goto free_variables;
     }
 
-    disk_item_t* disk = find_disk_item_t(storage_id, disks_list);
+    
     /* The storage pointer is created in this callback, assign it to
        disk_item_t instance. */
     disk->storage      = storage;
@@ -177,7 +206,6 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
     gboolean writable;
     gboolean full;
     gboolean exiting;
-    GList* disks_list = (GList*)user_data;
 
     if (error != NULL) {
         syslog(LOG_WARNING, "Failed to subscribe to %s. Error: %s", storage_id, error->message);
@@ -186,7 +214,7 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
     }
 
     syslog(LOG_INFO, "Subscribe for the events of %s", storage_id);
-    disk_item_t* disk = find_disk_item_t(storage_id, disks_list);
+    disk_item_t* disk = (disk_item_t*)user_data;
 
     /* Get the status of the events. */
     exiting = ax_storage_get_status(storage_id, AX_STORAGE_EXITING_EVENT, &ax_error);
@@ -259,7 +287,7 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
         /* Writable implies that the disk is available. */
     } else if (writable && !full && !exiting && !disk->setup) {
         syslog(LOG_INFO, "Setup %s", storage_id);
-        ax_storage_setup_async(storage_id, setup_disk_cb, disks_list, &ax_error);
+        ax_storage_setup_async(storage_id, setup_disk_cb, disk, &ax_error);
 
         if (ax_error != NULL) {
             /* NOTE: It is advised to try to setup again in case of failure. */
@@ -278,13 +306,13 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
  *
  * @return The item
  */
-disk_item_t* new_disk_item_t(gchar* storage_id, GList* disks_list) {
+disk_item_t* new_disk_item_t(gchar* storage_id) {
     GError* error     = NULL;
-    disk_item_t* item = NULL;
+    disk_item_t* item = g_new0(disk_item_t, 1);
     guint subscription_id;
 
     /* Subscribe to disks events. */
-    subscription_id = ax_storage_subscribe(storage_id, subscribe_cb, disks_list, &error);
+    subscription_id = ax_storage_subscribe(storage_id, subscribe_cb, item, &error);
     if (subscription_id == 0 || error != NULL) {
         syslog(LOG_ERR,
                "Failed to subscribe to events of %s. Error: %s",
@@ -294,7 +322,7 @@ disk_item_t* new_disk_item_t(gchar* storage_id, GList* disks_list) {
         return NULL;
     }
 
-    item                  = g_new0(disk_item_t, 1);
+    
     item->subscription_id = subscription_id;
     item->storage_id      = g_strdup(storage_id);
     item->setup           = FALSE;

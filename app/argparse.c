@@ -127,6 +127,8 @@ int parseOpt(int key, char* arg, struct argp_state* state) {
                 args->threshold = (unsigned int)threshold;
             } else if (state->arg_num == 7) {
                 args->labelsFile = arg;
+            } else if (state->arg_num == 8){
+                args->disk_memory = arg;
             } else {
                 argp_error(state, "Too many arguments given");
             }
@@ -141,9 +143,10 @@ int parseOpt(int key, char* arg, struct argp_state* state) {
             args->chip       = NULL;
             args->modelFile  = NULL;
             args->labelsFile = NULL;
+            args->disk_memory = NULL;
             break;
         case ARGP_KEY_END:
-            if (state->arg_num != 8) {
+            if (state->arg_num != 9) {
                 argp_error(state, "Invalid number of arguments given");
             }
             break;

@@ -34,6 +34,7 @@ typedef struct args_t {
     unsigned raw_height;
     unsigned threshold;
     char* chip;
+    char* disk_memory;
 } args_t;
 
 bool parseArgs(int argc, char** argv, args_t* args);
