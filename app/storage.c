@@ -28,6 +28,35 @@
 /* AX Storage library. */
 #include <axsdk/axstorage.h>
 
+gboolean save_image_disk(unsigned char* buffer, disk_item_t* item,  unsigned long buffer_size, const gchar* name) {
+    gboolean success = FALSE;
+    /* Write data to disk when it is available, writable and has disk space
+        and the setup has been done. */
+    if (item->available && item->writable && !item->full && item->setup) {
+        gchar* filename = g_strdup_printf("%s/%s", item->storage_path, name);
+
+        FILE* file = g_fopen(filename, "wb");
+        if (file == NULL) {
+            syslog(LOG_WARNING, "Failed to open %s. Error %s.", filename, g_strerror(errno));
+        } else {
+            size_t written = fwrite(buffer, sizeof(unsigned char), buffer_size, file);
+            if(written != buffer_size){
+                syslog(LOG_WARNING, "Guardado parcial de %s. Esperado: %lu, Escrito: %zu", filename, buffer_size, written);
+            } else{
+                syslog(LOG_INFO, "Guardado en %s", filename);
+                success = TRUE; 
+            }
+
+            fclose(file);
+        }
+        
+        g_free(filename);
+    }
+
+    return success;
+
+}
+
 
 /**
  * @brief Busca el disco suministradp en la lista de discos disponibles y lo inicializa
@@ -36,7 +65,7 @@
  * 
  * @return Disk item
  */
-disk_item_t* find_init_disk(gchar* storage_id){
+disk_item_t* init_disk(gchar* storage_id){
     GList* node = NULL;
     GList* disks = NULL;
     GError* error = NULL;
@@ -57,26 +86,10 @@ disk_item_t* find_init_disk(gchar* storage_id){
             return item;
         }
     }
-}
 
-/**
- * @brief Find disk item in disks_list
- *
- * @param storage_id The storage to subscribe to its events
- *
- * @return Disk item
- */
-disk_item_t* find_disk_item_t(gchar* storage_id, GList* disks_list) {
-    GList* node       = NULL;
-    disk_item_t* item = NULL;
-
-    for (node = g_list_first(disks_list); node != NULL; node = g_list_next(node)) {
-        item = node->data;
-
-        if (g_strcmp0(storage_id, item->storage_id) == 0) {
-            return item;
-        }
-    }
+    syslog(LOG_ERR, "Disk with ID %s not found", storage_id);
+    g_list_free(disks);
+    g_free(storage_id);
     return NULL;
 }
 
@@ -98,43 +111,37 @@ static void release_disk_cb(gpointer user_data, GError* error) {
 /**
  * @brief Free disk items from disks_list
  */
-void free_disk_item_t(GList* disks_list) {
-    GList* node = NULL;
-
-    for (node = g_list_first(disks_list); node != NULL; node = g_list_next(node)) {
-        GError* error     = NULL;
-        disk_item_t* item = node->data;
-
-        if (item->setup) {
-            /* NOTE: It is advised to finish all your reading/writing operations
-               before releasing the storage device. */
-            ax_storage_release_async(item->storage, release_disk_cb, item->storage_id, &error);
-            if (error != NULL) {
-                syslog(LOG_WARNING,
-                       "Failed to release %s. Error: %s",
-                       item->storage_id,
-                       error->message);
-                g_clear_error(&error);
-            } else {
-                syslog(LOG_INFO, "Release of %s was successful", item->storage_id);
-                item->setup = FALSE;
-            }
-        }
-
-        ax_storage_unsubscribe(item->subscription_id, &error);
+void free_disk_item_t(disk_item_t* item ) {
+    GError* error     = NULL;
+    if (item->setup) {
+        /* Nota: Es recomendable terminar todas las operaciones de leer/escribir en el disco antes de liberarlo */
+        ax_storage_release_async(item->storage, release_disk_cb, item->storage_id, &error);
         if (error != NULL) {
             syslog(LOG_WARNING,
-                   "Failed to unsubscribe event of %s. Error: %s",
-                   item->storage_id,
-                   error->message);
+                    "Failed to release %s. Error: %s",
+                    item->storage_id,
+                    error->message);
             g_clear_error(&error);
         } else {
-            syslog(LOG_INFO, "Unsubscribed events of %s", item->storage_id);
+            syslog(LOG_INFO, "Release of %s was successful", item->storage_id);
+            item->setup = FALSE;
         }
-        g_free(item->storage_id);
-        g_free(item->storage_path);
     }
-    g_list_free(disks_list);
+
+    ax_storage_unsubscribe(item->subscription_id, &error);
+    if (error != NULL) {
+        syslog(LOG_WARNING,
+                "Failed to unsubscribe event of %s. Error: %s",
+                item->storage_id,
+                error->message);
+        g_clear_error(&error);
+    } else {
+        syslog(LOG_INFO, "Unsubscribed events of %s", item->storage_id);
+    }
+    g_free(item->storage_id);
+    g_free(item->storage_path);
+    g_free(item);
+    syslog(LOG_INFO, "Disk item freed");
 }
 
 /**
@@ -309,6 +316,8 @@ static void subscribe_cb(gchar* storage_id, gpointer user_data, GError* error) {
 disk_item_t* new_disk_item_t(gchar* storage_id) {
     GError* error     = NULL;
     disk_item_t* item = g_new0(disk_item_t, 1);
+    item->storage_id      = g_strdup(storage_id);
+    item->setup           = FALSE;
     guint subscription_id;
 
     /* Subscribe to disks events. */
@@ -319,13 +328,12 @@ disk_item_t* new_disk_item_t(gchar* storage_id) {
                storage_id,
                error->message);
         g_clear_error(&error);
+        g_free(item->storage_id);
+        g_free(item);
         return NULL;
     }
 
-    
     item->subscription_id = subscription_id;
-    item->storage_id      = g_strdup(storage_id);
-    item->setup           = FALSE;
 
     return item;
 }

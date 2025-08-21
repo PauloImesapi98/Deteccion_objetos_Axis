@@ -21,18 +21,22 @@ typedef struct {
     gboolean exiting;           /** Storage is exiting (going to disappear) or not. */
 } disk_item_t;
 
-/**
- * @brief Finds a disk item by its storage_id.
- *
- * @param storage_id The storage_id of the disk item to find.
- * @return The disk item or NULL if not found.
- */
-disk_item_t* find_disk_item_t(gchar* storage_id, GList* disks_list);
 
 /**
- * @brief Frees all disk items in the disks list.
+ * @brief Guarda la imagen proporcionada en el disco de almacenamiento indicado
  */
-void free_disk_item_t(GList* disks_list);
+gboolean save_image_disk(unsigned char* buffer, disk_item_t* item,  unsigned long buffer_size, const gchar* name);
+
+/**
+ * @brief Busca el disco suministradp en la lista de discos disponibles y lo inicializa
+ */
+disk_item_t* init_disk(gchar* storage_id);
+
+
+/**
+ * @brief Frees disk item
+ */
+void free_disk_item_t(disk_item_t* item);
 
 /**
  * @brief Subscribes to disk events and creates new disk item
