@@ -1,6 +1,6 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
-# Aplicación Detección de Obejtos Axis
+# Aplicación Detección de Objetos Axis
 
 ## Resumen
 
@@ -17,24 +17,24 @@ En este repositorio se desarrolla una análitica de detección de objetos para c
 
 Para la ejecución de este programa se tienen que seguir los siguientes pasos:
 
-1. Abre Visual Studio Code, y clona el repositorio. Luego ejecuta el comando 'Dev container: Reopen in container' desde la paleta de comandos.
+1. Abre Visual Studio Code, y clona el repositorio. Luego ejecuta el comando `Dev container: Reopen in container` desde la paleta de comandos.
 
-2. Ejecuta el comando:
+2. En la terminal del contenedor. Ejecuta el comando:
     ```sh
     cp /workspaces/Deteccion_objetos_Axis/app/* /opt/app/
     ```
 
-3. Ejecuta el comando:
+3. En la terminal del contenedor. Ejecuta el comando:
     ```sh
     cd /opt/app
     ```
 
-4. Ejecuta el comando:
+4. En la terminal del contenedor. Ejecuta el comando:
     ```sh
     . /opt/axis/acapsdk/environment-setup*
     ```
 
-5. Ejecuta el comando:
+5. En la terminal del contenedor. Ejecuta el comando:
     ```sh
     acap-build -a 'label/labels.txt' -a 'model/converted_model.tflite'
     ```
@@ -83,7 +83,7 @@ Se establece la conexión con **larod**, seleccionando el hardware y asignando l
 - Se recupera el último fotograma disponible en formato NV12.
 - Se convierte a formato RGB intercalado.
 - Se envía al modelo para obtener predicciones.
-- Si la puntuación supera el umbral definido, el recorte correspondiente se guarda como imagen JPG en `/tmp`.
+- Si la puntuación supera el umbral definido, el recorte correspondiente se guarda como imagen JPG en la memoria de almacenamiento indicado.
 
 ---
 
