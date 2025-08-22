@@ -61,7 +61,6 @@
 #include "vdo-frame.h"
 #include "vdo-types.h"
 #include "storage.h"
-#include <axsdk/axstorage.h>
 
 /**
  * @brief Free up resources held by an array of labels.
@@ -452,9 +451,9 @@ int main(int argc, char** argv) {
     size_t numLabels    = 0;     // Number of entries in the labels array.
     char* labelFileData = NULL;  // Buffer holding the complete collection of label strings.
 
-    GList* disks = NULL;
-    GList* node = NULL;
-    GError* error_storage = NULL;
+    disk_item_t* disk = NULL;
+
+    
 
     // Open the syslog to report messages for "object_detection"
     openlog("object_detection", LOG_PID | LOG_CONS, LOG_USER);
@@ -477,24 +476,11 @@ int main(int argc, char** argv) {
     const int threshold          = args.threshold;
     const int quality            = args.quality;
 
-    disks = ax_storage_list(&error_storage);
-    if (error_storage != NULL) {
-        syslog(LOG_WARNING, "Failed to list storage devices. Error: (%s)", error_storage->message);
-        g_error_free(error_storage);
-        goto end;
-    }
-    if (disks == NULL) {
-        syslog(LOG_INFO, "No se han encontrado dispositivos de almacenamiento.");
-        goto end;
-    } else{
-        syslog(LOG_INFO, "Discos encontrados:");
-        for (node = g_list_first(disks); node != NULL; node = g_list_next(node)) {
-            gchar* disk_name  = (gchar*)node->data;
-            syslog(LOG_INFO, "%s", disk_name);
-            g_free(node->data);
-        }
-    }
-
+    disk = init_disk(args.disk_memory);
+    if(disk == NULL){
+        syslog(LOG_ERR, "%s: Could not initialize disk", __func__);
+        goto earlyend;
+    }   
     
 
     syslog(LOG_INFO, "Finding best resolution to use as model input");
@@ -874,8 +860,6 @@ int main(int argc, char** argv) {
     }
 
     while (true) {
-        struct timeval startTs, endTs;
-        unsigned int elapsedMs = 0;
 
         // Get latest frame from image pipeline.
         VdoBuffer* buf = getLastFrameBlocking(sdImageProvider);
@@ -894,8 +878,6 @@ int main(int argc, char** argv) {
         uint8_t* nv12Data    = (uint8_t*)vdo_buffer_get_data(buf);
         uint8_t* nv12Data_hq = (uint8_t*)vdo_buffer_get_data(buf_hq);
 
-        // Covert image data from NV12 format to interleaved uint8_t RGB format.
-        gettimeofday(&startTs, NULL);
 
         memcpy(ppInputAddr, nv12Data, yuyvBufferSize);
         if (!larodRunJob(conn, ppReq, &error)) {
@@ -913,12 +895,6 @@ int main(int argc, char** argv) {
                    error->code);
             goto end;
         }
-
-        gettimeofday(&endTs, NULL);
-
-        elapsedMs = (unsigned int)(((endTs.tv_sec - startTs.tv_sec) * 1000) +
-                                   ((endTs.tv_usec - startTs.tv_usec) / 1000));
-        syslog(LOG_INFO, "Converted image in %u ms", elapsedMs);
 
         // Since larodOutputAddr points to the beginning of the fd we should
         // rewind the file position before each job.
@@ -942,7 +918,6 @@ int main(int argc, char** argv) {
             goto end;
         }
 
-        gettimeofday(&startTs, NULL);
         if (!larodRunJob(conn, infReq, &error)) {
             syslog(LOG_ERR,
                    "Unable to run inference on model %s: %s (%d)",
@@ -951,11 +926,6 @@ int main(int argc, char** argv) {
                    error->code);
             goto end;
         }
-        gettimeofday(&endTs, NULL);
-
-        elapsedMs = (unsigned int)(((endTs.tv_sec - startTs.tv_sec) * 1000) +
-                                   ((endTs.tv_usec - startTs.tv_usec) / 1000));
-        syslog(LOG_INFO, "Ran inference for %u ms", elapsedMs);
 
         float* locations          = (float*)larodOutput1Addr;
         float* classes            = (float*)larodOutput2Addr;
@@ -963,9 +933,14 @@ int main(int argc, char** argv) {
         float* numberOfDetections = (float*)larodOutput4Addr;
 
         if ((int)numberOfDetections[0] == 0) {
-            syslog(LOG_INFO, "No object is detected");
+            syslog(LOG_INFO, "No se ha detectado ningún objeto");
             continue;
         }
+
+        syslog(LOG_INFO, "Se han detectado %d objetos", (int)numberOfDetections[0]);
+
+        float score_max = 0;
+        char* label_score_max = NULL;
 
         for (int i = 0; i < numberOfDetections[0]; i++) {
             float top    = locations[4 * i];
@@ -979,6 +954,11 @@ int main(int argc, char** argv) {
             unsigned int crop_y = top * heightFrameHD;
             unsigned int crop_w = (right - left) * croppedWidthHD;
             unsigned int crop_h = (bottom - top) * heightFrameHD;
+
+            if(scores[i] > score_max){
+                score_max = scores[i];
+                label_score_max = labels[(int)classes[i]];
+            }
 
             if (scores[i] >= threshold / 100.0) {
                 syslog(LOG_INFO,
@@ -1011,6 +991,8 @@ int main(int argc, char** argv) {
                 free(crop_buffer);
                 free(jpeg_buffer);
             }
+
+            syslog(LOG_INFO, "La precisón más alta detecta fue de %f y el objeto fue %s", score_max, label_score_max);
         }
 
         // Release frame reference to provider.
@@ -1031,6 +1013,9 @@ end:
     }
     if (hdImageProvider) {
         destroyImgProvider(hdImageProvider);
+    }
+    if (disk) {
+        free_disk_item_t(disk);
     }
     // Only the model handle is released here. We count on larod service to
     // release the privately loaded model when the session is disconnected in
